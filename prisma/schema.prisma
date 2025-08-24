@@ -1,0 +1,278 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Farmer {
+  id                  Int                   @id @default(autoincrement())
+  name                String
+  email               String?
+  password            String
+  FCMToken            String?
+  Otp                 String?
+  OtpExpireTime       DateTime?
+  phoneNumber         String                @unique
+  role                String                @default("FARMER")
+  profilePic          String?               @default("https://api.dicebear.com/9.x/lorelei/svg")
+  address             String?
+  cropsRequests       CropCalandarRequest[] @relation("FarmerToCropCalandarRequest")
+  farmerCropCalandars FarmerCropCalendar[]  @relation("FarmerToCropCalendar")
+  posts               Post[]                @relation("FarmerToPosts")
+  likes               Like[]                @relation("FarmerToLikes")
+  digitalSoilHealth   SmartIrrigationForm[] @relation("FarmerToSmartIrrigationForm")
+  soilHealthMap       SoilHealthMapForm[]   @relation("FarmerToSoilHealthMapForm")
+  DroneSprayingFrom   DroneSprayingFrom[]   @relation("FarmerToDroneSprayingFrom")
+  expertVisit         ExpertVisit[]
+  cropHealthMonitor  CropHealthMonitor[]
+}
+
+enum IrrigationType {
+  DRIP
+  SPRINKLER
+  SURFACE
+  SUBSURFACE
+}
+
+model SmartIrrigationForm {
+  id             Int            @id @default(autoincrement())
+  farmerId       Int
+  farmer         Farmer         @relation("FarmerToSmartIrrigationForm", fields: [farmerId], references: [id], onDelete: Cascade)
+  irrigationType IrrigationType
+  farmLoaction   String
+  cropType       String
+  areaInHectares Float
+  query          String
+  createdAt      DateTime       @default(now())
+  status         Formstatus     @default(PENDING)
+  pdf            String?
+}
+
+enum SoilType {
+  LOAM
+  CLAY
+  SANDY
+  SILT
+  PEAT
+  CHALK
+}
+
+model SoilHealthMapForm {
+  id             Int        @id @default(autoincrement())
+  farmerId       Int
+  farmer         Farmer     @relation("FarmerToSoilHealthMapForm", fields: [farmerId], references: [id], onDelete: Cascade)
+  farmLoaction   String
+  soilType       SoilType
+  cropType       String
+  areaInHectares Float
+  query          String
+  createdAt      DateTime   @default(now())
+  status         Formstatus @default(PENDING)
+  pdf            String?
+}
+
+model DroneSprayingFrom {
+  id             Int        @id @default(autoincrement())
+  farmerId       Int
+  farmer         Farmer     @relation("FarmerToDroneSprayingFrom", fields: [farmerId], references: [id], onDelete: Cascade)
+  farmLoaction   String
+  cropType       String
+  areaInHectares Float
+  sprayDate      DateTime
+  query          String
+  createdAt      DateTime   @default(now())
+  status         Formstatus @default(PENDING)
+  pdf            String?
+}
+
+model Post {
+  id           Int         @id @default(autoincrement())
+  content      String
+  image        String?
+  postedByType UserType
+  farmerId     Int?
+  agriExpertId Int?
+  farmer       Farmer?     @relation("FarmerToPosts", fields: [farmerId], references: [id], onDelete: Cascade)
+  agriExpert   AgriExpert? @relation("AgriExpertToPosts", fields: [agriExpertId], references: [id], onDelete: Cascade)
+  likeCount    Int         @default(0)
+  comments     Comment[]   @relation("PostToComments")
+  likes        Like[]      @relation("PostToLikes")
+}
+
+model Comment {
+  id           Int         @id @default(autoincrement())
+  content      String
+  postId       Int
+  post         Post        @relation("PostToComments", fields: [postId], references: [id], onDelete: Cascade)
+  agriExpertId Int
+  agriexpert   AgriExpert? @relation("AgriExpertToComments", fields: [agriExpertId], references: [id], onDelete: Cascade)
+}
+
+model Like {
+  id           Int         @id @default(autoincrement())
+  postId       Int
+  post         Post        @relation("PostToLikes", fields: [postId], references: [id], onDelete: Cascade)
+  userType     UserType
+  agriExpertId Int?
+  farmerId     Int?
+  farmer       Farmer?     @relation("FarmerToLikes", fields: [farmerId], references: [id], onDelete: Cascade)
+  agriExpert   AgriExpert? @relation("AgriExpertToLikes", fields: [agriExpertId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, farmerId])
+  @@unique([postId, agriExpertId])
+}
+
+model FarmerCropCalendar {
+  id                         Int                          @id @default(autoincrement())
+  farmerId                   Int
+  farmer                     Farmer                       @relation("FarmerToCropCalendar", fields: [farmerId], references: [id], onDelete: Cascade)
+  projectName                String?
+  projectDescription         String?
+  cropName                   String
+  cropType                   String
+  fieldSize                  Float
+  seedVariety                String?
+  location                   String
+  season                     String
+  startDate                  DateTime
+  FarmerCropCalendarActivity FarmerCropCalendarActivity[] @relation("CropCalendarToActivity")
+}
+
+model FarmerCropCalendarActivity {
+  id                   Int                @id @default(autoincrement())
+  farmerCropCalendarId Int
+  farmerCropCalendar   FarmerCropCalendar @relation("CropCalendarToActivity", fields: [farmerCropCalendarId], references: [id], onDelete: Cascade)
+  activityName         String
+  startTime            String
+  endTime              String
+  description          String?
+  image                String?
+  caption              String?
+  startDate            DateTime?
+}
+
+model AgriExpert {
+  id                   Int                   @id @default(autoincrement())
+  name                 String
+  email                String?               @unique
+  password             String
+  Otp                  String?
+  OtpExpireTime        DateTime?
+  phoneNumber          String                @unique
+  cropCalandars        CropCalendar[]        @relation("AgriExpertToCropCalendars")
+  role                 String                @default("AGRI_EXPERT")
+  cropCalanderRequests CropCalandarRequest[] @relation("AgriExpertToCropCalandarRequest")
+  address              String?
+  profilePic           String?
+  comments             Comment[]             @relation("AgriExpertToComments")
+  Posts                Post[]                @relation("AgriExpertToPosts")
+  likes                Like[]                @relation("AgriExpertToLikes")
+}
+
+model CropCalandarRequest {
+  id                 Int           @id @default(autoincrement())
+  farmerId           Int
+  farmer             Farmer        @relation("FarmerToCropCalandarRequest", fields: [farmerId], references: [id], onDelete: Cascade)
+  expert             AgriExpert?   @relation("AgriExpertToCropCalandarRequest", fields: [expertId], references: [id], onDelete: Cascade)
+  expertId           Int?
+  projectName        String?
+  projectDescription String?
+  cropName           String
+  cropType           String
+  filedSize          Float
+  seedVaraity        String?
+  location           String
+  season             String
+  startDate          DateTime
+  status             RequestStatus @default(PENDING)
+  cropCalandar       CropCalendar? @relation("RequestToCropCalendar")
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@index([farmerId, status])
+}
+
+model CropCalendar {
+  id            Int                 @id @default(autoincrement())
+  requestId     Int                 @unique
+  farmerRequest CropCalandarRequest @relation("RequestToCropCalendar", fields: [requestId], references: [id], onDelete: Cascade)
+  expert        AgriExpert          @relation("AgriExpertToCropCalendars", fields: [expertId], references: [id], onDelete: Cascade)
+  expertId      Int
+  season        String
+  createdAt     DateTime            @default(now())
+  activities    Activity[]          @relation("CropCalendarToActivities")
+  updatedAt     DateTime            @updatedAt
+}
+
+model Activity {
+  id           Int          @id @default(autoincrement())
+  calandarId   Int
+  cropCalendar CropCalendar @relation("CropCalendarToActivities", fields: [calandarId], references: [id], onDelete: Cascade)
+  activityName String
+  activityType String
+  startDate    DateTime
+  endDate      DateTime
+  description  String?
+
+  @@index([calandarId, startDate])
+}
+
+model DeleteAccountFeedback {
+  id                Int    @id @default(autoincrement())
+  farmerEmail       String
+  farmerPhoneNumber String
+  feedback          String
+}
+
+model Feedback {
+  id               Int    @id @default(autoincrement())
+  star             Int?
+  feedbackCategory String
+  feedback         String
+}
+
+model ExpertVisit {
+  id                Int        @id @default(autoincrement())
+  farmLocation      String
+  cropType          String
+  AreainHector      String
+  Query             String
+  visitPurpose      String?
+  soilType          SoilType?
+  preferedVisitDate DateTime?
+  farmer            Farmer     @relation(fields: [farmerID], references: [id])
+  farmerID          Int
+  status            Formstatus @default(PENDING)
+  pdf               String?
+}
+
+model CropHealthMonitor {
+  id             Int      @id @default(autoincrement())
+  farmerLocation String
+  soilType       SoilType
+  cropType       String
+  query          String
+  farmerID       Int
+  farmer         Farmer   @relation(fields: [farmerID], references: [id])
+  status Formstatus @default(PENDING)
+  pdf String?
+}
+
+enum RequestStatus {
+  PENDING
+  ACCEPTED
+  COMPLETED
+}
+
+enum UserType {
+  FARMER
+  AGRI_EXPERT
+}
+
+enum Formstatus {
+  PENDING
+  COMPLETED
+}
